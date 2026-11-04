@@ -59,7 +59,13 @@ bool VoiceMod::enable() {
         [this](const std::string &msg) { getSelf().getLogger().info("{}", msg); }, mConfig.logPosition);
     mTracker->start();
 
-    if (mConfig.loopbackTest) {
+    // Self Hearing is the primary toggle (default ON). loopbackTest is kept as a
+    // legacy alias so older configs still enable the same path.
+    const bool wantSelfHearing = mConfig.selfHearing || mConfig.loopbackTest;
+    if (wantSelfHearing) {
+        self.getLogger().info(
+            "Self Hearing ON (volume={:.0f}%, throughResound={}) - Resound Compatible path",
+            mConfig.selfHearingVolume * 100.0f, mConfig.throughResound ? "yes" : "no");
         {
             std::lock_guard<std::mutex> lock(mAudioMu);
             mAudioStop = false;
@@ -67,7 +73,7 @@ bool VoiceMod::enable() {
         // Off the game thread: may have to wait for the user to answer the permission prompt.
         mAudioThread = std::thread([this] { audioStartupLoop(); });
     } else {
-        self.getLogger().info("Networked voice not implemented yet (server {}:{}, radius {})",
+        self.getLogger().info("Self Hearing OFF; networked voice not implemented yet (server {}:{}, radius {})",
                               mConfig.serverHost, mConfig.serverPort, mConfig.radius);
     }
     return true;
@@ -89,10 +95,23 @@ void VoiceMod::audioStartupLoop() {
             if (i == 0)
                 log.info("Microphone: app={} declared={} granted={}", st.package, st.declared, st.granted);
             if (st.granted) {
+                Loopback::Options opt;
+                opt.inputPreset = mConfig.micInputPreset;
+                opt.micGainDb = mConfig.micGainDb;
+                opt.playbackVolume = mConfig.selfHearingVolume;
                 auto loop = std::make_unique<Loopback>();
-                if (loop->start()) {
+                if (loop->start(opt)) {
                     mLoopback = std::move(loop);
-                    log.info("Loopback running - speak, you should hear yourself");
+                    if (mConfig.throughResound) {
+                        log.info("Self Hearing running (Resound Compatible mode requested, preset={}, micGain={:.1f}dB). "
+                                 "Mixer path not fully wired yet - using direct loopback fallback. "
+                                 "Speak with headphones on.",
+                                 mConfig.micInputPreset, mConfig.micGainDb);
+                    } else {
+                        log.info("Self Hearing running (direct loopback, preset={}, micGain={:.1f}dB). "
+                                 "Speak, you should hear yourself.",
+                                 mConfig.micInputPreset, mConfig.micGainDb);
+                    }
                 } else {
                     log.error("Microphone is allowed but the audio stream failed to open (see 'VoiceChat' log lines)");
                 }

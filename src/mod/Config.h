@@ -8,10 +8,29 @@
 namespace voicechat {
 
 struct ModConfig {
-    int version = 1;
+    int version = 3;
     bool enabled = true;
-    // Mic -> Opus -> speaker test. Turn off once networking is wired up.
+
+    // --- Self Hearing (Resound Compatible) ---
+    // Hear your own voice. Default ON.
+    // When throughResound is true, the path is intended to go through the game
+    // mixer so Resound (and other world FX) can apply. Until the FMOD world-group
+    // path is fully wired, the implementation falls back to a direct loopback
+    // (Oboe) which still lets you verify the mic + codec path with headphones.
+    bool selfHearing = true;
+    bool throughResound = true;   // Resound-compatible routing preference
+    float selfHearingVolume = 1.0f; // 0.0 .. 2.0 (100% default)
+
+    // Mic capture tuning. VoiceCommunication applies heavy AEC/NS and on many
+    // phones it suppresses speech while leaving ambient noise — that is a mod
+    // preset issue, not the device. Default is voice_recognition (speech-first).
+    // Options: voice_recognition | voice_communication | generic | unprocessed | camcorder
+    std::string micInputPreset = "voice_recognition";
+    float micGainDb = 6.0f; // pre-encode gain; speech is often quiet after platform NS
+
+    // Legacy alias kept so old configs still load; prefer selfHearing.
     bool loopbackTest = true;
+
     std::string serverHost = "127.0.0.1";
     int serverPort = 24454;
     int radius = 32; // blocks
@@ -35,9 +54,30 @@ template <> struct pl::config::Schema<voicechat::ModConfig> {
             return {.title = "Version", .readOnly = true};
         if (name == "enabled")
             return {.title = "Enabled", .description = "Turns the voice chat mod on or off."};
+        if (name == "selfHearing")
+            return {.title = "Self Hearing",
+                    .description = "Hear your own voice (default ON). Resound Compatible when "
+                                   "Through Resound is also enabled."};
+        if (name == "throughResound")
+            return {.title = "Through Resound",
+                    .description = "Route self-hearing through the game mixer so Resound "
+                                   "(and other world FX) can apply. Falls back to direct "
+                                   "loopback if the mixer path is not ready."};
+        if (name == "selfHearingVolume")
+            return {.title = "Self Hearing Volume",
+                    .description = "Volume of your own voice (0.0 = silent, 1.0 = 100%, 2.0 = 200%)."};
+        if (name == "micInputPreset")
+            return {.title = "Mic input preset",
+                    .description = "Android capture mode. Use voice_recognition if speech is missing "
+                                   "and only noise remains. Options: voice_recognition, "
+                                   "voice_communication, generic, unprocessed, camcorder."};
+        if (name == "micGainDb")
+            return {.title = "Mic gain (dB)",
+                    .description = "Pre-encode microphone gain. Raise if your voice is too quiet "
+                                   "(default +6 dB). Range roughly -12 .. +24."};
         if (name == "loopbackTest")
-            return {.title = "Loopback test",
-                    .description = "Play your own microphone back through the speaker (use headphones)."};
+            return {.title = "Loopback test (legacy)",
+                    .description = "Legacy name for Self Hearing. Prefer the Self Hearing toggle."};
         if (name == "serverHost")
             return {.title = "Server host", .description = "Voice relay server address."};
         if (name == "serverPort")
