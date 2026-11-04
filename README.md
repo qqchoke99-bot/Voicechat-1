@@ -3,11 +3,20 @@
 Built on the LeviLauncher mod template (preloader-android 0.2.2).
 
 ## Status
-- [x] Mic -> Opus -> speaker loopback (`src/voice/Loopback.*`), toggled by `loopbackTest` in config
+- [x] **Self Hearing** (default ON) – hear your own voice; Resound Compatible preference via `throughResound`
+- [x] Mic -> Opus -> speaker loopback (`src/voice/Loopback.*`), driven by `selfHearing` (legacy: `loopbackTest`)
+- [ ] True FMOD / world-mixer path so Resound reverb lands on self-hearing (falls back to direct loopback for now)
 - [ ] UDP client talking to the relay server (`voicechat/server.py`, protocol in `protocol.py` / `packet.h`)
 - [ ] Jitter buffer
 - [x] Player position / yaw / dimension via BedrockTools' event API (`src/voice/PlayerTracker.*`)
 - [x] Distance falloff + stereo pan math (`src/voice/Proximity.h`, host-tested: `tests/proximity_test.cpp`)
+
+### Self Hearing / Resound Compatible (config)
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `selfHearing` | `true` | Hear your own voice |
+| `throughResound` | `true` | Prefer routing through the game mixer (Resound FX) |
+| `selfHearingVolume` | `1.0` | 0.0–2.0 linear gain (1.0 = 100%) |
 
 ## Build
 Push to GitHub and let the Actions workflow build the `.levipack` (artifact: `voicechat-levipack`),
